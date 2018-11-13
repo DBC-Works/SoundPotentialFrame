@@ -1,0 +1,80 @@
+{
+  "repeat": false,
+  "framePerSecond": 24,
+  "recordImageType": "",
+  "waitForStart": false,
+  "connection": {
+    "out": {
+      "name": ""
+    }
+  },
+  "scenes": [
+    {
+      "sound": {
+        "filePath": "Simulacra Stampede.mp3",
+        "beatPerMinute": 144,
+        "beatPerBar": 4
+      },
+      "visualizations": [
+        {
+          "visualizer": "Beat arc levels",
+          "foreground": "#000080",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "length": "18bar1beat",
+          "options": {
+          }
+        },
+        {
+          "visualizer": "Facing levels",
+          "foreground": "#ff4500",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "start": "19bar1beat",
+          "end": "59bar1beat",
+          "options": {
+          }
+        },
+        {
+          "visualizer": "Fake laser light style levels",
+          "foreground": "#228b22",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "start": "59bar1beat",
+          "end": "75bar1beat",
+          "options": {
+          }
+        },
+        {
+          "visualizer": "Facing levels",
+          "foreground": "#DB7093",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "start": "76bar1beat",
+          "end": "130bar1beat",
+          "options": {
+          }
+        }
+      ]
+    },
+    {
+      "sound": {
+        "filePath": "Within.mp3",
+        "beatPerMinute": 120,
+        "beatPerBar": 4
+      },
+      "visualizations": [
+        {
+          "visualizer": "Noise steering line",
+          "foreground": "#b0c4de",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "start": "0%",
+          "end": "100%",
+          "options": {
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "title": "Setting",
+  "description": "SoundPotentialFrame visualization setting.",
+  "type": "object",
+  "properties": {
+    "repeat": {
+      "description": "Play endless if true.",
+      "type": "boolean"
+    },
+    "framePerSecond": {
+      "description": "Frame count per second.",
+      "type": "number"
+    },
+    "recordImageType": {
+      "description": "Recording frame's image type.",
+      "type": ["string", "null"],
+      "enum": ["JPEG", "PNG", "TGA", "", "null"]
+    },
+    "waitForStart": {
+      "description": "Wait to start until press space key.",
+      "type": "boolean"
+    },
+    "connectionInfo": {
+      "description": "External connection information.",
+      "optional": true,
+      "type": "object",
+      "properties": {
+        "out": {
+          "description": "Output information.",
+          "optional": true,
+          "type": "object",
+          "properties": {
+            "name": {
+              "description": "Send name.",
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "scenes": {
+      "description": "Scene list to play.",
+      "type": "array",
+      "item": "object",
+      "properties": {
+        "sound": {
+          "description": "Sound information to visualize.",
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "description": "Playback sound file path.",
+              "type": "string"
+            },
+            "beatPerMinute": {
+              "description": "Beat per minute of playback music.",
+              "type": "number"
+            },
+            "beatPerBar": {
+              "description": "Beat per bar of playback music.",
+              "type": "number"
+            }
+          }
+        },
+        "visualizations": {
+          "description": "Visualization definitions.",
+          "type": "array",
+          "item": "object",
+          "properties": {
+            "visualizer": {
+              "description": "Visualizer name.",
+              "type": "string"
+            },
+            "foreground": {
+              "description": "Foreground color(HTML color format).",
+              "type": "string"
+            },
+            "background": {
+              "description": "Background color(HTML color format) or image file path.",
+              "type": "string"
+            },
+            "blebdMode": {
+              "description": "Blend mode.",
+              "type": "string",
+              "enum": ["NORMAL", "ADD", "SUBTRACT", "DARKEST", "LIGHTEST", "DIFFERENCE", "EXCLUSION", "MULTIPLY", "SCREEN", "REPLACE"]
+            },
+            "options": {
+              "description": "Visualizer-specific parameters(reserved).",
+              "type": "object"
+            },
+            "start": {
+              "description": "Start position to visualize. You can set percentage(n%), time(hh:mm:ss.nnn) or  bar + beat(/[\\d\\.]+bar[\\d\\.]+beat/).",
+              "type": "string"
+            },
+            "end": {
+              "description": "End position to visualize. Value format is same as start.",
+              "type": "string"
+            },
+            "length": {
+              "description": "Length to visualize. Value format is same as start.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "visualizer",
+            "foreground",
+            "background",
+            "blendMode"
+          ]
+        }
+      }
+    }
+  },
+  "required": [
+    "repeat",
+    "framePerSecond",
+    "scenes"
+  ]
+}
