@@ -21,6 +21,10 @@ Key operation
 Visualizer list and sample
 --------------------------
 
+### Text
+
+* Text
+
 ### Shape
 
 * [Ellipse rotation](https://www.youtube.com/watch?v=36mkyvD_-rA)
@@ -34,6 +38,7 @@ Visualizer list and sample
 
 ### Level
 
+* Simple bar level meter
 * [Beat arc levels](https://www.youtube.com/watch?v=dk7Cl3NCE2Y)
 * [Beat circle and octaved frequency level](https://www.youtube.com/watch?v=8OjJnXsUcvE)
 * [Beat circle and frequency level](https://www.youtube.com/watch?v=a9wDyeLgfiM)

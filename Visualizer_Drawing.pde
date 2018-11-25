@@ -3,8 +3,8 @@ final class NoiseSteeringLineVisualizer extends Visualizer {
 
   private XorShift32 rand;
   
-  NoiseSteeringLineVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, 0, #ffffff);
+  NoiseSteeringLineVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, 0, #ffffff);
   }
 
   void clear() {
@@ -15,7 +15,7 @@ final class NoiseSteeringLineVisualizer extends Visualizer {
     return particles.isEmpty() == false;
   }
   
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     final int halfWidth = width / 2;
     final int halfHeight = height / 2;
     if (rand == null) {
@@ -80,8 +80,8 @@ final class NoiseSteeringCurveLineVisualizer extends Visualizer {
   private XorShift32 rand;
   private float ns;
   
-  NoiseSteeringCurveLineVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, #ffffff, 0);
+  NoiseSteeringCurveLineVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
   }
   
   private void updateParticles(List<Particle> particles, boolean rightSide) {
@@ -124,7 +124,7 @@ final class NoiseSteeringCurveLineVisualizer extends Visualizer {
     return rightParticles.isEmpty() == false || leftParticles.isEmpty() == false;
   }
 
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     if (rand == null) {
       initBackground();
       rand = new XorShift32((int)provider.beatPerMinute);
@@ -177,8 +177,8 @@ final class LevelTraceVisualizer extends Visualizer {
   private XorShift32 rand;
   private float ns;
   
-  LevelTraceVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, #ffffff, 0);
+  LevelTraceVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
   }
 
   void clear() {
@@ -190,7 +190,7 @@ final class LevelTraceVisualizer extends Visualizer {
     return rightParticles.isEmpty() == false || leftParticles.isEmpty() == false;
   }
 
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     if (rand == null) {
       rand = new XorShift32((int)getCurrentScene().soundInfo.beatPerMinute);
       ns = rand.nextFloat();
@@ -202,7 +202,7 @@ final class LevelTraceVisualizer extends Visualizer {
     final int maxSpec = provider.rightFft.freqToIndex(440 * 4);
     rightParticles.clear();
     leftParticles.clear();
-    if (expired == false) {
+    if (getState() != VisualizingState.Expired) {
       for (int index = 0; index < maxSpec; ++index) {
         rightParticles.add(new Particle(new PVector(index, provider.rightFft.getBand(index)), 1));
       }
@@ -265,8 +265,8 @@ final class BlurringArcVisualizer extends Visualizer {
   private float hueNoiseSeed;
   private float hue;
   
-  BlurringArcVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, #ffffff, 0);
+  BlurringArcVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
   }
 
   private void moveParticles(List<Particle> particles, float angle, float level) {
@@ -307,7 +307,7 @@ final class BlurringArcVisualizer extends Visualizer {
     return rightParticles.isEmpty() == false || leftParticles.isEmpty() == false;
   }
 
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     if (posNoiseSeed == Float.MIN_VALUE) {
       posNoiseSeed = getCurrentScene().soundInfo.beatPerMinute;
       hueNoiseSeed = noise(posNoiseSeed);
@@ -316,13 +316,13 @@ final class BlurringArcVisualizer extends Visualizer {
       }
     }
 
-    final float angle = -(PI * getProgressPercentage());
+    final float angle = -(PI * provider.getProgressPercentage());
 
     moveParticles(rightParticles, angle, provider.player.right.level());
     moveParticles(leftParticles, PI + angle, provider.player.left.level());
 
-    final float unit = (getShortSideLen() / 2.0) * (getProgressPercentage());
-    if (expired == false) {
+    final float unit = (getShortSideLen() / 2.0) * (provider.getProgressPercentage());
+    if (getState() != VisualizingState.Expired) {
       rightParticles.add(createParticle(unit, provider.player.right.level(), angle));
       leftParticles.add(createParticle(unit, provider.player.left.level(), PI + angle));
     }

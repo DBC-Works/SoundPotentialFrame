@@ -4,8 +4,8 @@ final class ParticleFountainVisualizer extends Visualizer {
   
   private float noiseSeed = random(1);
   
-  ParticleFountainVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, #fffa88, 0);
+  ParticleFountainVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #fffa88, 0);
 
     noiseSeed((long)random(Integer.MAX_VALUE));
   }
@@ -48,7 +48,7 @@ final class ParticleFountainVisualizer extends Visualizer {
     return rightParticles.isEmpty() == false || leftParticles.isEmpty() == false; 
   }
 
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     if (isPrimary) {
       initBackground();
     }
@@ -57,7 +57,7 @@ final class ParticleFountainVisualizer extends Visualizer {
     moveParticles(leftParticles);
     noiseSeed += 0.01;
     
-    if (expired == false) {
+    if (getState() != VisualizingState.Expired) {
       final int maxSpec = provider.rightFft.specSize() / 2;
       for (int index = 0; index < maxSpec; ++index) {
         rightParticles.add(createParticle(PI * ((float)index / maxSpec), provider.rightFft.getBand(index)));
@@ -85,6 +85,146 @@ final class ParticleFountainVisualizer extends Visualizer {
   }
 }
 
+abstract class LevelVisualizer extends Visualizer {
+  private final float topFreq;
+  private final float decayRate;
+
+  private List< ValueAttenuator > rightLevels;
+  private List< ValueAttenuator > leftLevels;
+
+  protected LevelVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
+
+    topFreq = info.options.getFloat("topFrequency", -1);
+    decayRate = info.options.getFloat("decayRate", 0.5);
+  }
+
+  final boolean isDrawable() {
+    return (rightLevels != null && hasValidValue(rightLevels))
+         || (leftLevels != null && hasValidValue(leftLevels));
+  }
+
+  final protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
+    List< Float> latestRightLevels = null;
+    List< Float> latestLeftLevels = null;
+    
+    if (isPrimary || getState() != VisualizingState.Expired) {
+      if (isPrimary) {
+        initBackground();
+      }
+      if (getState() != VisualizingState.Expired) {
+        latestRightLevels = getLevels(provider.rightFft);
+        latestLeftLevels = getLevels(provider.leftFft);
+      }
+    }
+    if (rightLevels == null) {
+      if (latestRightLevels != null) {
+        rightLevels = initializeLevelContainer(latestRightLevels);
+      }
+    }
+    else {
+      updateLevels(latestRightLevels, rightLevels);
+    }
+    if (leftLevels == null) {
+      if (latestLeftLevels != null) {
+        leftLevels = initializeLevelContainer(latestLeftLevels);
+      }
+    }
+    else {
+      updateLevels(latestLeftLevels, leftLevels);
+    }
+  }
+  protected void doVisualize() {
+    colorMode(HSB, 360, 100, 100, 100);
+    
+    noFill();
+    
+    final float h = hue(fgColor);
+    final float s = saturation(fgColor);
+    final float b = brightness(fgColor);
+    final float a = alpha(fgColor);
+    stroke(color(h, s, b, 0 < a ? a : 99));
+
+    if (rightLevels != null) {
+      pushMatrix();
+      visualizeLevels(rightLevels, false);
+      popMatrix();
+    }
+    if (leftLevels != null) {
+      pushMatrix();
+      visualizeLevels(leftLevels, true);
+      popMatrix();
+    }
+  }
+
+  private boolean hasValidValue(List< ValueAttenuator > levels) {
+    Iterator< ValueAttenuator > it = levels.iterator();
+    while (it.hasNext()) {
+      final ValueAttenuator v = it.next();
+      if (0.01 < v.getValue()) {
+        return true;
+      }
+    }
+    return false;
+  }
+  private List<Float> getLevels(FFT fft) {
+    final List<Float> levels = new ArrayList<Float>();
+    final int maxIndex = topFreq < 0
+                        ? fft.specSize()
+                        : min(fft.freqToIndex(topFreq), fft.specSize());
+    for (int index = 0; index < maxIndex; ++index) {
+      levels.add(fft.getBand(index));
+    }
+    return levels;
+  }
+  private List< ValueAttenuator > initializeLevelContainer(List< Float > latestLevels) {
+    final List< ValueAttenuator > levels = new ArrayList< ValueAttenuator >();
+    for (float level : latestLevels) {
+      levels.add(new ValueAttenuator(decayRate).update(level));
+    }
+    return levels;
+  }
+  private void updateLevels(List< Float > latestLevels, List< ValueAttenuator > levels) {
+    if (latestLevels != null) {
+      for (int index = 0; index < levels.size(); ++index) {
+        levels.get(index).update(latestLevels.get(index));
+      }
+    }
+    else {
+      for (ValueAttenuator value : levels) {
+        value.update();
+      }
+    }
+  }
+
+  abstract protected void visualizeLevels(List< ValueAttenuator > levels, boolean asLeft);
+}
+
+final class SimpleBarLevelMeterVisualizer extends LevelVisualizer {
+  private final float meterLenRatio;
+  private final float meterWidthRatio;
+
+  SimpleBarLevelMeterVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis);
+
+    meterLenRatio = info.options.getFloat("meterLengthRatio", 1.0);
+    meterWidthRatio = info.options.getFloat("meterWidthRatio", 1.0);
+  }
+
+  protected void visualizeLevels(List< ValueAttenuator > levels, boolean asLeft) {
+    translate(0, height / 2);
+
+    final float weight = (width / (float)levels.size());
+    strokeWeight(weight * meterWidthRatio);
+    float x = 0;
+    for (ValueAttenuator value : levels) {
+      final float levelRatio = value.getValue() / 150.0;
+      line(x, 0, x, (levelRatio * (asLeft ? -1 : 1)) * ((height / 2) * meterLenRatio));
+      x += weight;
+    }
+  }
+}
+
 abstract class BeatCircleVisualizer extends Visualizer {
   protected final float radius;
   protected final float weightUnit;
@@ -97,8 +237,8 @@ abstract class BeatCircleVisualizer extends Visualizer {
   private int kickCount = -1;
   private int hatCount = -1;
   
-  protected BeatCircleVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis, float fgAlphaLevel) {
-    super(info, firstTimeMillis, lastTimeMillis, 0, #ffffff);
+  protected BeatCircleVisualizer(VisualizationInfo info, long lastTimeMillis, float fgAlphaLevel) {
+    super(info, lastTimeMillis, 0, #ffffff);
     alphaLevel = fgAlphaLevel;
 
     final int shortSideLen = getShortSideLen(); 
@@ -112,10 +252,10 @@ abstract class BeatCircleVisualizer extends Visualizer {
   }
 
   final boolean isDrawable() {
-    return expired(System.currentTimeMillis()) == false;
+    return getState() == VisualizingState.Processing;
   }
   
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     final float dr = 24.0 / getFramePerSecond();
 
     if (isPrimary) {
@@ -125,7 +265,7 @@ abstract class BeatCircleVisualizer extends Visualizer {
     updateDiameters(kickDiameters, 0.67 * dr, (radius / 20.0));
     if (kickCount < 0) {
       if (provider.beatDetector.isKick()) {
-        if (expired == false) {
+        if (getState() != VisualizingState.Expired) {
           kickDiameters.add(radius * 2);
         }
         kickCount = 0;
@@ -140,7 +280,7 @@ abstract class BeatCircleVisualizer extends Visualizer {
     updateDiameters(hatDiameters, 1.2 * dr, max(width, height));
     if (hatCount < 0) {
       if (provider.beatDetector.isHat()) {
-        if (expired == false) {
+        if (getState() != VisualizingState.Expired) {
           hatDiameters.add(radius * 2);
         }
         hatCount = 0;
@@ -152,7 +292,7 @@ abstract class BeatCircleVisualizer extends Visualizer {
       }
     }
 
-    prepareAdditionalElements(provider, expired);
+    prepareAdditionalElements(provider, getState() == VisualizingState.Expired);
   }
   protected final void doVisualize() {
     colorMode(RGB, 255, 255, 255, 100);
@@ -202,8 +342,8 @@ final class BeatCircleAndFreqLevelVisualizer extends BeatCircleVisualizer {
   private final List<Particle> rightParticles = new ArrayList<Particle>();
   private final List<Particle> leftParticles = new ArrayList<Particle>();
 
-  BeatCircleAndFreqLevelVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, 40);
+  BeatCircleAndFreqLevelVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, 40);
   }
 
   private void updateParticles(List<Particle> particles, FFT fft, boolean expired, boolean asLeft) {
@@ -249,8 +389,8 @@ final class BeatCircleAndFreqLevelVisualizer extends BeatCircleVisualizer {
 final class BeatCircleAndOctavedFreqLevelVisualizer extends BeatCircleVisualizer {
   private OctavedLevels octavedLevels;
 
-  BeatCircleAndOctavedFreqLevelVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, 67);
+  BeatCircleAndOctavedFreqLevelVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, 67);
     setDetectionIntervalFrame(((provider.getCrotchetQuantityMillis() / 1000) * getFramePerSecond()) / 4);
   }
   
@@ -295,15 +435,15 @@ final class PoppingLevelVisualizer extends Visualizer {
   private XorShift32 rand;
   private float ns;
   
-  PoppingLevelVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, #ffffff, 0);
+  PoppingLevelVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
   }
   
   boolean isDrawable() {
-    return expired(System.currentTimeMillis()) == false;
+    return getState() == VisualizingState.Processing;
   }
 
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     if (rand == null) {
       rand = new XorShift32((int)provider.beatPerMinute);
       ns = rand.nextFloat();
@@ -354,15 +494,15 @@ final class SpreadOctagonVisualizer extends Visualizer {
   private final List<List<List<ShapeSource>>> rightSourcesHistory = new ArrayList<List<List<ShapeSource>>>();
   private final List<List<List<ShapeSource>>> leftSourcesHistory = new ArrayList<List<List<ShapeSource>>>();
   
-  SpreadOctagonVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, #ffffff, 0);
+  SpreadOctagonVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
   }
   
   boolean isDrawable() {
     return rightSourcesHistory.isEmpty() == false || leftSourcesHistory.isEmpty() == false;
   }
   
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     if (isPrimary) {
       initBackground();
       final OctavedLevels octavedLevels = provider.getOctavedLevels();
@@ -438,21 +578,22 @@ abstract class OctavedLevelsVisualizer extends Visualizer {
   private List< List< ValueAttenuator > > rightLevels;
   private List< List< ValueAttenuator > > leftLevels;
 
-  protected OctavedLevelsVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, #ffffff, 0);
+  protected OctavedLevelsVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
   }
   
   boolean isDrawable() {
-    return expired(System.currentTimeMillis()) == false && 
+    return getState() == VisualizingState.Processing && 
           (0 < mixIntensity.getValue()
           || 0 < leftIntensity.getValue()
           || 0 < rightIntensity.getValue());
   }
   
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     List< List< Float >> latestRightLevels = null;
     List< List< Float >> latestLeftLevels = null;
     
+    final boolean expired = getState() == VisualizingState.Expired;
     if (isPrimary || expired == false) {
       if (isPrimary) {
         initBackground();
@@ -540,8 +681,8 @@ final class TripleRegularOctahedronVisualizer extends OctavedLevelsVisualizer {
   private final Shape shape = new RegularOctahedron(null);
   private final PVector sharedShapePoint = new PVector(0, 0, 0);
 
-  TripleRegularOctahedronVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis);
+  TripleRegularOctahedronVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis);
   }
 
   protected void visualizeOctavedLevels(List< List< ValueAttenuator > > octavedLevels, boolean asLeft) {
@@ -595,8 +736,8 @@ final class TripleRegularOctahedronVisualizer extends OctavedLevelsVisualizer {
 final class FacingLevelsVisualizer extends OctavedLevelsVisualizer {
   private float ns = random(100);
   
-  FacingLevelsVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis);
+  FacingLevelsVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis);
   }
   
   protected void visualizeOctavedLevels(List< List< ValueAttenuator > > octavedLevels, boolean asLeft) {
@@ -635,8 +776,8 @@ final class FacingLevelsVisualizer extends OctavedLevelsVisualizer {
 }
 
 final class FakeLaserLightStyleLevelsVisualizer extends OctavedLevelsVisualizer {
-  FakeLaserLightStyleLevelsVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis);
+  FakeLaserLightStyleLevelsVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis);
   }
   
   protected void visualizeOctavedLevels(List< List< ValueAttenuator > > octavedLevels, boolean asLeft) {
@@ -656,8 +797,8 @@ final class FakeLaserLightStyleLevelsVisualizer extends OctavedLevelsVisualizer 
 }
 
 final class BeatArcLevelsVisualizer extends OctavedLevelsVisualizer {
-  BeatArcLevelsVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis);
+  BeatArcLevelsVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis);
   }
   
   protected void visualizeOctavedLevels(List< List< ValueAttenuator > > octavedLevels, boolean asLeft) {
@@ -697,12 +838,12 @@ final class LissajousVisualizer extends Visualizer {
 
   private float rotationY;
 
-  LissajousVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, 0, #ffffff);
+  LissajousVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, 0, #ffffff);
   }
  
   boolean isDrawable() {
-    return expired(System.currentTimeMillis()) == false;
+    return getState() == VisualizingState.Processing;
   }
   
   private void drawPoints(List<PVector> points, float factorX, float factorY) {
@@ -713,7 +854,7 @@ final class LissajousVisualizer extends Visualizer {
     }
   }
   
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     if (isPrimary) {
       initBackground();
       if (startMillis == 0) {
@@ -763,12 +904,12 @@ final class NaturalAngleSpiralVisualizer extends Visualizer {
   private List<PVector> rightPoints;
   private List<PVector> leftPoints;
 
-  NaturalAngleSpiralVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, 0, #ffffff);
+  NaturalAngleSpiralVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, 0, #ffffff);
   }
  
   boolean isDrawable() {
-    return expired(System.currentTimeMillis()) == false;
+    return getState() == VisualizingState.Processing;
   }
   
   private List<PVector> calcPoints(float level, float angleStep) {
@@ -790,7 +931,7 @@ final class NaturalAngleSpiralVisualizer extends Visualizer {
     endShape();
   }
   
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     if (isPrimary) {
       initBackground();
       if (startMillis == 0) {

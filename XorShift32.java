@@ -11,7 +11,7 @@ final class XorShift32 {
     value = seed;
   }
   XorShift32() {
-    this((int)random(Integer.MAX_VALUE));
+    this((int)(java.lang.Math.random() * Integer.MAX_VALUE));
   }
 
   long nextUnsignedInt() {

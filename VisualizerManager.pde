@@ -1,4 +1,3 @@
- 
 final class SoundInfo {
   final String filePath;
   final float beatPerMinute;
@@ -18,6 +17,7 @@ final class VisualizationInfo {
   final String start;
   final String end;
   final String len;
+  final JSONArray filters;
   final JSONObject options;
 
   VisualizationInfo(
@@ -27,6 +27,7 @@ final class VisualizationInfo {
     String st,
     String e,
     String l,
+    JSONArray flt,
     JSONObject opt
   ) {
     fgColor = fg;
@@ -69,6 +70,7 @@ final class VisualizationInfo {
     start = st;
     end = e;
     len = l;
+    filters = flt;
     options = opt;
   }
 }
@@ -100,11 +102,18 @@ final class SceneInfo {
         info.getString("start", null),
         info.getString("end", null),
         info.getString("length", null),
+        info.getJSONArray("filters"),
         info.getJSONObject("options")
       );
       visualizations.add(new SimpleEntry(visualizerName, vi));
     }    
   }
+}
+
+enum VisualizingState {
+  Idle,
+  Processing,
+  Expired
 }
 
 abstract class Visualizer {
@@ -114,30 +123,33 @@ abstract class Visualizer {
   protected final VisualizationInfo visualizationInfo;
   protected final color fgColor;
   protected final color bgColor;
-  private final PImage backgroundImage;
 
-  protected Visualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis, color defaultForegroundColor, color defaultBackgroundColor) {
+  private final PImage backgroundImage;
+  private final List< PShader > filterShaders = new ArrayList< PShader >();
+  private VisualizingState state = VisualizingState.Idle;
+
+  protected Visualizer(VisualizationInfo info, long lastTimeMillis, color defaultForegroundColor, color defaultBackgroundColor) {
     visualizationInfo = info;
-    
+
     MusicDataProvider provider = getMusicDataProvider();
     long start;
     if (info.start != null && 0 < info.start.length()) {
-      start = firstTimeMillis + provider.calcLengthMillis(info.start);
+      start = provider.calcLengthMillis(info.start);
     }
     else {
       start = lastTimeMillis;
     }
     startTimeMillis = start - (long)(getSecondPerFrame() * 1000);
     if (info.len != null && 0 < info.len.length()) {
-      endTimeMillis = startTimeMillis + provider.calcLengthMillis(info.len);
+      endTimeMillis = start + provider.calcLengthMillis(info.len);
     }
     else if (info.end != null && 0 < info.end.length()) {
-      endTimeMillis = firstTimeMillis + provider.calcLengthMillis(info.end);
+      endTimeMillis = provider.calcLengthMillis(info.end);
     }
     else {
-      endTimeMillis = startTimeMillis + provider.player.length();
+      endTimeMillis = start + provider.player.length();
     }
-    
+
     fgColor = info.fgColor != null ? decodeColor(info.fgColor) : defaultForegroundColor;
     if (info.background != null && 0 < info.background.length()) {
       if (info.background.startsWith("#")) {
@@ -153,12 +165,35 @@ abstract class Visualizer {
       bgColor = defaultBackgroundColor;
       backgroundImage = null; 
     }
+
+    if (info.filters != null) {
+      for (int index = 0; index < info.filters.size(); ++index) {
+        String name = info.filters.getString(0, null);
+        if (name != null) {
+          PShader shader = loadShader(name);
+          shader.set("u_size", width, height);
+          filterShaders.add(shader);
+        }
+      }
+    }
   }
-  final boolean expired(long curMillis) {
-    return endTimeMillis <= curMillis;
+  final protected VisualizingState getState() {
+    return state;
   }
-  final Visualizer prepare(boolean isPrimary, boolean expired) {
-    doPrepare(getMusicDataProvider(), isPrimary, expired);
+  final VisualizingState updateState(long curMillis) {
+    if (curMillis < startTimeMillis) {
+      state = VisualizingState.Idle;
+    }
+    else if (endTimeMillis <= curMillis) {
+      state = VisualizingState.Expired;
+    }
+    else {
+      state = VisualizingState.Processing;
+    }
+    return state;
+  }
+  final Visualizer prepare(boolean isPrimary) {
+    doPrepare(getMusicDataProvider(), isPrimary);
     return this;
   }
   final Visualizer visualize() {
@@ -170,10 +205,13 @@ abstract class Visualizer {
     }
     return this;
   }
-
-  protected final float getProgressPercentage() {
-    return (System.currentTimeMillis() - startTimeMillis) / (float)(endTimeMillis - startTimeMillis);
+  final Visualizer applyFilter() {
+    for (PShader shader : filterShaders) {
+      filter(shader);
+    }
+    return this;
   }
+
   protected final void initBackground() { 
     if (backgroundImage != null) {
       background(0);
@@ -192,20 +230,74 @@ abstract class Visualizer {
   }
 
   private color decodeColor(String nm) {
-    final int c = Integer.decode(nm); 
-    return nm.startsWith("#0000") && c < 256 ? color(0, 0, c) : color(c);
+    String clr = nm;
+    String alpha = "FF";
+    if (clr.length() == 9) {
+      clr = nm.substring(0, 7);
+      alpha = nm.substring(7);
+    }
+    final int c = Integer.decode(clr); 
+    final int a = Integer.parseInt(alpha, 16); 
+    return clr.startsWith("#0000") && c < 256
+          ? color(0, 0, c, a)
+          : color(red(c), green(c), blue(c), a);
   }
 
   void clear() {
   }
   abstract boolean isDrawable();
 
-  protected abstract void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired);
+  protected abstract void doPrepare(MusicDataProvider provider, boolean isPrimary);
   protected abstract void doVisualize();
 }
 
+final class TextVisualizer extends Visualizer {
+  private final String fontFace;
+  private final float size;
+  private final float x;
+  private final float y;
+  private final String text;
+  private final PFont font;
+
+  TextVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
+
+    fontFace = info.options.getString("fontFace", null);
+    size = info.options.getFloat("size", 0.5);
+    x = info.options.getFloat("x", 0.5);
+    y = info.options.getFloat("y", 0.5);
+    text = info.options.getString("text", "");
+
+    font = createFont(fontFace, getScaledValue(size));
+  }
+
+  final boolean isDrawable() {
+    return getState() == VisualizingState.Processing;
+  }
+
+  final protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
+    if (isPrimary) {
+      initBackground();
+    }
+  }
+  protected void doVisualize() {
+    colorMode(HSB, 360, 100, 100, 100);
+
+    final float h = hue(fgColor);
+    final float s = saturation(fgColor);
+    final float b = brightness(fgColor);
+    final float a = alpha(fgColor);
+    fill(color(h, s, b, 0 < a ? a : 99));
+
+    translate(width / 2, height / 2);
+    textFont(font);
+    textAlign(CENTER, CENTER);
+    text(text, (width / 2) * x, (height / 2) * y);
+  }
+}
+
 interface VisualizerFactory {
-  Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis);
+  Visualizer create(VisualizationInfo info, long lastTimeMillis);
 }
 
 final class VisualizerManager {
@@ -215,93 +307,105 @@ final class VisualizerManager {
   VisualizerManager() {
     factories = new HashMap<String, VisualizerFactory>() {
       {
+        // Text
+        put("Text", new VisualizerFactory() {
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new TextVisualizer(info, lastTimeMillis);
+          }
+        });
+
         // Shape
         put("Ellipse rotation", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new EllipseRotationVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new EllipseRotationVisualizer(info, lastTimeMillis);
           }
         });
 
         // Drawing
         put("Noise steering line", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new NoiseSteeringLineVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new NoiseSteeringLineVisualizer(info, lastTimeMillis);
           }
         });
         put("Noise steering curve line", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new NoiseSteeringCurveLineVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new NoiseSteeringCurveLineVisualizer(info, lastTimeMillis);
           }
         });
         put("Level trace", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new LevelTraceVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new LevelTraceVisualizer(info, lastTimeMillis);
           }
         });
         put("Blurring arc", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new BlurringArcVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new BlurringArcVisualizer(info, lastTimeMillis);
           }
         });
 
         // Level
+        put("Simple bar level meter", new VisualizerFactory() {
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new SimpleBarLevelMeterVisualizer(info, lastTimeMillis);
+          }
+        });
         put("Beat circle and frequency level", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new BeatCircleAndFreqLevelVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new BeatCircleAndFreqLevelVisualizer(info, lastTimeMillis);
           }
         });
         put("Beat circle and octaved frequency level", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new BeatCircleAndOctavedFreqLevelVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new BeatCircleAndOctavedFreqLevelVisualizer(info, lastTimeMillis);
           }
         });
         put("Popping level", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new PoppingLevelVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new PoppingLevelVisualizer(info, lastTimeMillis);
           }
         });
         put("Spread octagon level", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new SpreadOctagonVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new SpreadOctagonVisualizer(info, lastTimeMillis);
           }
         });
         put("Triple regular octahedron", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new TripleRegularOctahedronVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new TripleRegularOctahedronVisualizer(info, lastTimeMillis);
           }
         });
 
         put("Facing levels", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new FacingLevelsVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new FacingLevelsVisualizer(info, lastTimeMillis);
           }
         });
         put("Fake laser light style levels", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new FakeLaserLightStyleLevelsVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new FakeLaserLightStyleLevelsVisualizer(info, lastTimeMillis);
           }
         });
         put("Beat arc levels", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new BeatArcLevelsVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new BeatArcLevelsVisualizer(info, lastTimeMillis);
           }
         });
 
         put("Natural angle spiral", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new NaturalAngleSpiralVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new NaturalAngleSpiralVisualizer(info, lastTimeMillis);
           }
         });
 
         put("Particle fountain", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new ParticleFountainVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new ParticleFountainVisualizer(info, lastTimeMillis);
           }
         });
 
         put("Lissajous", new VisualizerFactory() {
-          Visualizer create(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-            return new LissajousVisualizer(info, firstTimeMillis, lastTimeMillis);
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new LissajousVisualizer(info, lastTimeMillis);
           }
         });
       }
@@ -309,13 +413,12 @@ final class VisualizerManager {
   }
 
   void setUpVisualizers(SceneInfo info) {
-    final long startTimeMillis = System.currentTimeMillis();
-    long endTimeMillis = startTimeMillis;
+    long endTimeMillis = 0;
     final List<Visualizer> setUpVisualizers = new ArrayList<Visualizer>();
     for (SimpleEntry<String, VisualizationInfo> visualization : info.visualizations) {
       final String visualizerName = visualization.getKey(); 
       if (factories.containsKey(visualizerName)) {
-        Visualizer v = factories.get(visualizerName).create(visualization.getValue(), startTimeMillis, endTimeMillis);
+        Visualizer v = factories.get(visualizerName).create(visualization.getValue(), endTimeMillis);
         setUpVisualizers.add(v);
         if (endTimeMillis < v.endTimeMillis) {
           endTimeMillis = v.endTimeMillis;
@@ -331,25 +434,31 @@ final class VisualizerManager {
         return (int)timeDiff;
       }
     });
+    visualizers.clear();
     visualizers.addAll(0, setUpVisualizers);
   }
   void visualize() {
-    final long curMillis = System.currentTimeMillis();
+    final long curMillis = provider.player.position();
 
     boolean primary = true;
     final Iterator it = visualizers.iterator();
     while (it.hasNext()) {
       Visualizer visualizer = (Visualizer)it.next();
-      final boolean expired = visualizer.expired(curMillis); 
-      if (expired && visualizer.isDrawable() == false) {
-        it.remove();
-      }
-      if (visualizer.startTimeMillis <= curMillis) {
-        visualizer.prepare(primary, expired);
-        primary = false;
-        if (visualizer.isDrawable()) {
+      boolean drawable = false;
+      final VisualizingState state = visualizer.updateState(curMillis);
+      if (state != VisualizingState.Idle) {
+        visualizer.prepare(primary);
+        drawable = visualizer.isDrawable();
+        if (drawable) {
           visualizer.visualize();
         }
+        if (primary || drawable) {
+          visualizer.applyFilter();
+        }
+        primary = false;
+      }
+      if (state == VisualizingState.Expired && drawable == false) {
+        it.remove();
       }
     }
   }

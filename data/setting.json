@@ -17,12 +17,40 @@
       },
       "visualizations": [
         {
+          "visualizer": "Text",
+          "foreground": "#000080",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "start": "0%",
+          "length": "18bar1beat",
+          "options": {
+            "fontFace": "DejaVu Sans",
+            "size": 64,
+            "x": 0,
+            "y": 0,
+            "text": "Simulacra Stampede"
+          }
+        },
+        {
           "visualizer": "Beat arc levels",
           "foreground": "#000080",
           "background": "#000000",
           "blendMode": "ADD",
+          "start": "0%",
           "length": "18bar1beat",
           "options": {
+          }
+        },
+        {
+          "visualizer": "Simple bar level meter",
+          "foreground": "#FFFFFF",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "start": "18bar1beat",
+          "length": "2bar1beat",
+          "options": {
+            "meterLengthRatio": 4.0,
+            "meterWidthRatio": 0.8
           }
         },
         {
@@ -42,6 +70,19 @@
           "blendMode": "ADD",
           "start": "59bar1beat",
           "end": "75bar1beat",
+          "options": {
+          }
+        },
+        {
+          "visualizer": "Fake laser light style levels",
+          "foreground": "#228b22",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "start": "75bar1beat",
+          "end": "76bar1beat",
+          "filters": [
+            "filter-invert.frag"
+          ],
           "options": {
           }
         },

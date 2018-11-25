@@ -37,6 +37,7 @@ FrameRecorder recorder;
 
 MusicDataProvider provider;
 int currentSceneIndex = 0;
+int startFrameCount;
 int frameDropCount = 0;
 
 boolean repeatPlayback() {
@@ -79,6 +80,7 @@ private JSONObject loadSetting() {
 }
 
 private void playNewSound() {
+  startFrameCount = frameCount;
   SceneInfo scene = scenes.get(currentSceneIndex); 
   provider = new MusicDataProvider(this, scene.soundInfo.filePath, scene.soundInfo.beatPerMinute, scene.soundInfo.beatPerBar);
   visualizerManager.setUpVisualizers(scene);

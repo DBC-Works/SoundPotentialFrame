@@ -47,12 +47,19 @@ void setup() {
 
 void draw() {
   if (standby) {
-    colorMode(HSB, 360, 0, 0, 0);
-    background(360 * sin(map(frameCount % (frameRate * 8), 0, frameRate * 8, -PI, PI)));
+    colorMode(RGB, 255, 255, 255);
+    final float ratio = 255 * sin(map((frameCount * 100 / getFramePerSecond()) % 1000, 0, 1000, -PI, PI));
+    background(ratio, ratio, ratio);
     return;
   }
 
   final long startTime = System.currentTimeMillis();
+
+  if (0 <= startFrameCount && 0 < provider.player.position()) {
+    println("Leading frame count: " + (frameCount - startFrameCount));
+    startFrameCount = -1;
+  }
+
   if (provider.player.isPlaying() == false && provider.atLast()) {
     ++currentSceneIndex;
     if (scenes.size() <= currentSceneIndex) {
@@ -83,8 +90,8 @@ void draw() {
     recorder.recordFrame();
   }
 
-  long timeTaken = System.currentTimeMillis() - startTime;
-  if (((1.0 / frameRate) * 1000) < timeTaken) {
+  final long timeTaken = System.currentTimeMillis() - startTime;
+  if (((1.0 / getFramePerSecond()) * 1000) < timeTaken) {
     println("Overtime: " + timeTaken + "ms(" + frameCount + ")");
     ++frameDropCount;
   }
@@ -94,13 +101,19 @@ void draw() {
   }
 }
 
-void keyReleased( ){
+void keyReleased(){
   if (key == CODED) {
+    switch (keyCode) {
+      case ALT:
+        break;
+    }
+  }
+  else {
     switch (keyCode) {
       case 5:  // PrtSc
         saveFrame("scene-########.png");
         break;
-      case ' ':
+      case 32:  // Space
         if (standby) {
           standby = false;
           playNewSound();
@@ -114,12 +127,6 @@ void keyReleased( ){
           }
         }
         break;
-      case ALT:
-        break;
-    }
-  }
-  else {
-    switch (key) {
       case DELETE:
         visualizerManager.clear();
         break;

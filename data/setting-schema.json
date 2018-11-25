@@ -88,7 +88,7 @@
               "type": "object"
             },
             "start": {
-              "description": "Start position to visualize. You can set percentage(n%), time(hh:mm:ss.nnn) or  bar + beat(/[\\d\\.]+bar[\\d\\.]+beat/).",
+              "description": "Start position to visualize. You can set percentage(n%), time(hh:mm:ss.nnn) or bar + beat(/[\\d\\.]+bar[\\d\\.]+beat/).",
               "type": "string"
             },
             "end": {
@@ -98,6 +98,11 @@
             "length": {
               "description": "Length to visualize. Value format is same as start.",
               "type": "string"
+            },
+            "filters": {
+              "description": "Collection of fragment shader file name to use as filter.",
+              "type": "array",
+              "item": "string"
             }
           },
           "required": [

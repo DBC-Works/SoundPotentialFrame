@@ -5,7 +5,6 @@ class SoundDataProvider {
   final FFT leftFft;
 
   private final Minim minim;
-  protected long startTimeMillis = -1;
 
   SoundDataProvider(PApplet applet, String filePath) {
     minim = new Minim(applet);
@@ -32,9 +31,6 @@ class SoundDataProvider {
   }
   final SoundDataProvider play() {
     if (player != null) {
-      if (startTimeMillis < 0) {
-        startTimeMillis = System.currentTimeMillis();
-      }
       player.play();
     }
     return this;
@@ -93,13 +89,13 @@ final class MusicDataProvider extends SoundDataProvider {
     return beatPerMinute;
   }
   float getCrotchetQuantityMillis() {
-    return (float)((60.0 / beatPerMinute) * 1000);
+    return 60000.0 / beatPerMinute;
   }
   float getBarLengthMillis() {
     return getCrotchetQuantityMillis() * beatPerBar;
   }
   float getElapsedTimeMillis() {
-    return 0 < startTimeMillis ? System.currentTimeMillis() - startTimeMillis : 0;
+    return player.position();
   }
   float getElapsedTimeAsQuantityMillis() {
     return getElapsedTimeMillis() / getCrotchetQuantityMillis();

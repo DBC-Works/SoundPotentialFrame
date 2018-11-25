@@ -9,8 +9,8 @@ final class EllipseRotationVisualizer extends Visualizer {
   private float leftIntensity;
   private float mixIntensity;
   
-  EllipseRotationVisualizer(VisualizationInfo info, long firstTimeMillis, long lastTimeMillis) {
-    super(info, firstTimeMillis, lastTimeMillis, 0, #ffffff);
+  EllipseRotationVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, 0, #ffffff);
 
     fgHue = hue(fgColor);
     fgSaturation = saturation(fgColor);
@@ -60,10 +60,10 @@ final class EllipseRotationVisualizer extends Visualizer {
   }
  
   boolean isDrawable() {
-    return expired(System.currentTimeMillis()) == false;
+    return getState() == VisualizingState.Processing;
   }
   
-  protected void doPrepare(MusicDataProvider provider, boolean isPrimary, boolean expired) {
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
     if (isPrimary) {
       if (rotation < 0) {
         rotationInc = 4.0 * (provider.getCrotchetQuantityMillis() / 1000) / getFramePerSecond();
