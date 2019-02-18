@@ -11,6 +11,25 @@
   "scenes": [
     {
       "sound": {
+        "filePath": "Innumerable struggles against injustices(beat loop edit).mp3",
+        "beatPerMinute": 142,
+        "beatPerBar": 4
+      },
+      "visualizations": [
+        {
+          "visualizer": "Bluring boxes",
+          "foreground": "#c71585",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "start": "0%",
+          "end": "100%",
+          "options": {
+          }
+        }
+      ]
+    },
+    {
+      "sound": {
         "filePath": "Simulacra Stampede.mp3",
         "beatPerMinute": 144,
         "beatPerBar": 4

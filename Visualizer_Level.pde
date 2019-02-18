@@ -967,3 +967,115 @@ final class NaturalAngleSpiralVisualizer extends Visualizer {
     popMatrix();
   }
 }
+
+final class BluringBoxesVisualizer extends Visualizer {
+  private final List<Float> rightLevels = new ArrayList<Float>();
+  private final List<Float> leftLevels = new ArrayList<Float>();
+
+  private float saturation = 0;
+  private float boxScale = 0;
+  private float ns = -1;
+
+  BluringBoxesVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
+  }
+
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
+    if (isPrimary) {
+      if (ns < 0) {
+        final int tempo = (int)provider.getBeatPerMinute();
+        randomSeed(tempo);
+        ns = random(tempo);
+      }
+
+      initBackground();
+    }
+    clear();
+    if (getState() != VisualizingState.Expired) {
+      if (provider.beatDetector.isKick()) {
+        saturation = 99;
+      } else {
+        saturation = saturation * 0.8;
+      }
+      if (provider.beatDetector.isHat()) {
+        boxScale = 1.0;
+      } else {
+        boxScale = boxScale * 0.8;
+      }
+
+      final int maxSpec = provider.rightFft.specSize() / 2;
+      if (rightLevels.isEmpty()) {
+        for (int index = 0; index < maxSpec; ++index) {
+          rightLevels.add(provider.rightFft.getBand(index));
+          leftLevels.add(provider.leftFft.getBand(index));
+        }
+      }
+      else {
+        for (int index = 0; index < maxSpec; ++index) {
+          rightLevels.set(index, (provider.rightFft.getBand(index) - rightLevels.get(index)) * 0.1);
+          leftLevels.set(index, (provider.leftFft.getBand(index) - leftLevels.get(index)) * 0.1);
+        }
+      }
+    }
+    else {
+      saturation = saturation * 0.8;
+      boxScale = boxScale * 0.8;
+    }
+  }
+
+  void clear() {
+    rightLevels.clear();
+    leftLevels.clear();
+  }
+  boolean isDrawable() {
+    return 0.1 <= saturation;
+  }
+
+  private void drawLevels(List<Float> levels, boolean asLeft) {
+    final float r = TWO_PI * noise(ns);
+    for (int index = 0; index < levels.size(); ++index) {
+      final int level = (int)Math.ceil(levels.get(index) * (width / 50));
+      final int y = (int)map(index, 0, levels.size(), 0, height / 2);
+
+      float nsHue = random(asLeft ? provider.player.left.level() : provider.player.right.level());
+
+      pushMatrix();
+      rotate(r);
+      final float boxSize = height / 5.0 * (exp(-(1.0 - boxScale)));
+      float h = hue(fgColor) + ((noise(nsHue) * 180) - 90);
+      if (h < 0) {
+        h += 360;
+      }
+      else if (359 <= h) {
+        h -= 359;
+      }
+      final int xUnit = width / 50;
+      for (int x = 0; x < level && x < (width / 2) + (xUnit * 2); x += xUnit) {
+        stroke(color(h, 99 - saturation, brightness(fgColor), 33));
+        final int drawY = (int)Math.ceil(height / 2 * noise(x / 100.0, y / 100.0, ns));
+        pushMatrix();
+        translate(x * (asLeft ? -1 : 1), drawY % 2 == 0 ? drawY : -drawY);
+        rotateX(r);
+        rotateY(r);
+        box(boxSize);
+        popMatrix();
+
+        nsHue += 0.1;
+      }
+      popMatrix();
+    }
+  }
+
+  protected void doVisualize() {
+    colorMode(HSB, 360, 100, 100, 100);
+
+    translate(width / 2, height / 2);
+
+    strokeWeight(getScaledValue(2));
+    noFill();
+
+    drawLevels(rightLevels, false);
+    drawLevels(leftLevels, true);
+    ns += 0.01;
+  }
+}

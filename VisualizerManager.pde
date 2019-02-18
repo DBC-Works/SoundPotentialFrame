@@ -408,6 +408,12 @@ final class VisualizerManager {
             return new LissajousVisualizer(info, lastTimeMillis);
           }
         });
+
+        put("Bluring boxes", new VisualizerFactory() {
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new BluringBoxesVisualizer(info, lastTimeMillis);
+          }
+        });
       }
     };
   }

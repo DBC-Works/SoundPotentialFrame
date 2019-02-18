@@ -50,6 +50,7 @@ Visualizer list and sample
 * [Popping level](https://www.youtube.com/watch?v=BZYvBHitrn0)
 * [Spread octagon level](https://www.youtube.com/watch?v=hETIP_SY71s)
 * [Triple regular octahedron](https://www.youtube.com/watch?v=_TwmpcksBoE)
+* [Blurring boxes](https://www.youtube.com/watch?v=MiBApZcCT_g)
 
 Using libraries
 ---------------
