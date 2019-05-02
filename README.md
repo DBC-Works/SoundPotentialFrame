@@ -44,13 +44,16 @@ Visualizer list and sample
 * [Beat circle and frequency level](https://www.youtube.com/watch?v=a9wDyeLgfiM)
 * [Facing levels](https://www.youtube.com/watch?v=PkM_S_ELdhQ)
 * [Fake laser light style levels](https://www.youtube.com/watch?v=I_dAmbUC0AE)
-* [Lissajous](https://www.youtube.com/watch?v=ZlENOvQupsc)
+* Lissajous
+    * https://www.youtube.com/watch?v=ZlENOvQupsc
+    * https://www.youtube.com/watch?v=i9GYB1W_h2c
 * [Natural angle spiral](https://www.youtube.com/watch?v=X5FMfSQM6rs)
 * [Particle fountain](https://www.youtube.com/watch?v=-lqzAKOhg8c)
 * [Popping level](https://www.youtube.com/watch?v=BZYvBHitrn0)
 * [Spread octagon level](https://www.youtube.com/watch?v=hETIP_SY71s)
 * [Triple regular octahedron](https://www.youtube.com/watch?v=_TwmpcksBoE)
 * [Blurring boxes](https://www.youtube.com/watch?v=MiBApZcCT_g)
+* [Twisted plate](https://www.youtube.com/watch?v=Be_uL2BfHV4)
 
 Using libraries
 ---------------

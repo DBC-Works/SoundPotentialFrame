@@ -1,6 +1,13 @@
 CHANGELOG
 =========
 
+20190502
+--------
+
+* Add new visualizers:
+  * Twisted plate
+* Update "Lissajous" visualizer.
+
 20181125
 --------
 

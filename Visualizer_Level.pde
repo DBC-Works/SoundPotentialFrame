@@ -75,7 +75,7 @@ final class ParticleFountainVisualizer extends Visualizer {
     translate(width / 2, height / 2);
     rotate(PI / 2);
     noStroke();
-    strokeWeight(getScaledValue(1));
+    setStrokeWeight(1);
     fill(hue(fgColor), saturation(fgColor), brightness(fgColor), 5);
     
     final float r = getScaledValue(8);
@@ -522,7 +522,7 @@ final class SpreadOctagonVisualizer extends Visualizer {
     translate(width / 2, height / 2);
     noFill();
 
-    strokeWeight(getScaledValue(3));
+    setStrokeWeight(3);
     pushMatrix();
     int index = rightSourcesHistory.size();
     for (List<List<ShapeSource>> rightSources : rightSourcesHistory) {
@@ -787,7 +787,7 @@ final class FakeLaserLightStyleLevelsVisualizer extends OctavedLevelsVisualizer 
     rotate(radians(provider.getElapsedTimeMillis() / provider.getCrotchetQuantityMillis() * 16) * asLeftSign);
     for (List< ValueAttenuator > levels : octavedLevels) {
       for (ValueAttenuator value : levels) {
-        strokeWeight(getScaledValue(3) * value.getValue());
+        strokeWeight(getStrokeWeight(3) * value.getValue());
         line(0, 0, 0, width);
         rotate((TWO_PI / (float)levels.size()) * asLeftSign);
       }
@@ -812,7 +812,7 @@ final class BeatArcLevelsVisualizer extends OctavedLevelsVisualizer {
         float angle = PI / 2;
         for (ValueAttenuator value : levels) {
           final float volume = value.getValue();
-          strokeWeight(getScaledValue(10) * volume);
+          strokeWeight(getStrokeWeight(10) * volume);
           final float unit = (getShortSideLen() * (volume / 50));
           if (asLeft) {
             arc(0, 0, unit, unit, angle, angle + step);
@@ -831,6 +831,8 @@ final class LissajousVisualizer extends Visualizer {
   private final LissajousCalculator calculator = new LissajousCalculator();
 
   private long startMillis = 0;
+  private final boolean keepStrokeWeight;
+  private float mixLevel;
   private float rightLevel;
   private float leftLevel;
   private List<PVector> rightPoints;
@@ -840,6 +842,8 @@ final class LissajousVisualizer extends Visualizer {
 
   LissajousVisualizer(VisualizationInfo info, long lastTimeMillis) {
     super(info, lastTimeMillis, 0, #ffffff);
+
+    keepStrokeWeight = info.options.getBoolean("keepStrokeWeight", true);
   }
  
   boolean isDrawable() {
@@ -862,6 +866,7 @@ final class LissajousVisualizer extends Visualizer {
       }
     }
     final float amp = provider.getBeatPerMinute() / 5;
+    mixLevel = provider.getMixLevel();
     rightLevel = provider.getRightLevel();
     leftLevel = provider.getLeftLevel();
 
@@ -876,10 +881,10 @@ final class LissajousVisualizer extends Visualizer {
     colorMode(HSB, 360, 100, 100, 100);
     stroke(hue(fgColor), saturation(fgColor), brightness(fgColor), 25);
     noFill();
-    strokeWeight(getScaledValue(2));
+    strokeWeight(getStrokeWeight(2) * (keepStrokeWeight ? 1 : mixLevel));
 
-    final float factor = height / 2; 
-    final float distanceX = width / 4; 
+    final float factor = height / 2;
+    final float distanceX = width / 4;
     
     pushMatrix();
     translate(distanceX * 3, factor);
@@ -950,7 +955,7 @@ final class NaturalAngleSpiralVisualizer extends Visualizer {
   protected void doVisualize() {
     colorMode(HSB, 360, 100, 100, 100);
     noFill();
-    strokeWeight(getScaledValue(2));
+    setStrokeWeight(2);
     curveTightness(-1);
 
     pushMatrix();
@@ -1071,11 +1076,120 @@ final class BluringBoxesVisualizer extends Visualizer {
 
     translate(width / 2, height / 2);
 
-    strokeWeight(getScaledValue(2));
+    setStrokeWeight(2);
     noFill();
 
     drawLevels(rightLevels, false);
     drawLevels(leftLevels, true);
     ns += 0.01;
+  }
+}
+
+final class TwistedPlateVisualizer extends Visualizer {
+  private final List<Float> rightLevels = new ArrayList<Float>();
+  private final List<Float> leftLevels = new ArrayList<Float>();
+
+  private float mixLevel = 0;
+  private float rightLevel = 0;
+  private float leftLevel = 0;
+
+  private float nsRotation = -1;
+  private float nsHue = -1;
+
+  TwistedPlateVisualizer(VisualizationInfo info, long lastTimeMillis) {
+    super(info, lastTimeMillis, #ffffff, 0);
+  }
+
+  private float adjustValue(float currentValue, float newValue) {
+    return currentValue + ((newValue - currentValue) * 0.4);
+  }
+
+  protected void doPrepare(MusicDataProvider provider, boolean isPrimary) {
+    if (isPrimary) {
+      if (nsRotation < 0) {
+        final int tempo = (int)provider.getBeatPerMinute();
+        randomSeed(tempo);
+        nsRotation = random(tempo);
+        nsHue = random(tempo);
+      }
+
+      initBackground();
+    }
+    clear();
+    if (getState() != VisualizingState.Expired) {
+
+      mixLevel = adjustValue(mixLevel, provider.getMixLevel());
+      rightLevel = adjustValue(rightLevel, provider.getRightLevel());
+      leftLevel = adjustValue(leftLevel, provider.getLeftLevel()); 
+
+      final int maxSpec = provider.rightFft.specSize() / 2;
+      if (rightLevels.isEmpty()) {
+        for (int index = 0; index < maxSpec; ++index) {
+          rightLevels.add(provider.rightFft.getBand(index));
+          leftLevels.add(provider.leftFft.getBand(index));
+        }
+      }
+      else {
+        for (int index = 0; index < maxSpec; ++index) {
+          rightLevels.set(index, adjustValue(provider.rightFft.getBand(index), rightLevels.get(index)));
+          leftLevels.set(index, adjustValue(provider.leftFft.getBand(index), leftLevels.get(index)));
+        }
+      }
+    }
+  }
+
+  void clear() {
+    rightLevels.clear();
+    leftLevels.clear();
+  }
+  boolean isDrawable() {
+    return 0 < mixLevel;
+  }
+
+  private void drawLevels(float totalLevel, List<Float> levels, boolean asLeft) {
+    final float w = ((width * 2) * totalLevel) * (asLeft ? -1 : 1);
+    final float unit = w / levels.size();
+    float x = 0;
+    float h = hue(fgColor) + ((noise(nsHue) - 0.5) * 120);
+    float r = 0;
+    for (float level : levels) {
+      stroke(h, 99 - (saturation(fgColor) * level), brightness(fgColor), 99 * mixLevel);
+      pushMatrix();
+      translate(x, 0);
+      rotateY(PI * mixLevel * (asLeft ? -1 : 1));
+      rotate(r);
+      // rect(0, 0, (w / 2) * log(level), height * totalLevel);
+      // rect(0, 0, (w / 2), height * totalLevel * log(level));
+      rect(0, 0, w / 2, height * totalLevel);
+      popMatrix();
+
+      x += unit;
+      h += (180.0 / levels.size());
+      if (359 <= h) {
+        h -= 359;
+      }
+      r += PI / levels.size();
+    }
+    nsHue += 0.01;
+  }
+
+  protected void doVisualize() {
+    colorMode(HSB, 360, 100, 100, 100);
+
+    translate(width / 2, height / 2);
+    rotate(TWO_PI * noise(nsRotation));
+    nsRotation += 0.01;
+    rotateX(TWO_PI * noise(nsRotation));
+    nsRotation += 0.01;
+    rotateY(TWO_PI * noise(nsRotation));
+    nsRotation += 0.01;
+
+    setStrokeWeight(2);
+    noFill();
+
+    rectMode(CENTER);
+    ellipseMode(CENTER);
+    drawLevels(rightLevel, rightLevels, false);
+    drawLevels(leftLevel, leftLevels, true);
   }
 }

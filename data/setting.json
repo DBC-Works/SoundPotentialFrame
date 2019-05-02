@@ -11,6 +11,25 @@
   "scenes": [
     {
       "sound": {
+        "filePath": "Within.mp3",
+        "beatPerMinute": 120,
+        "beatPerBar": 4
+      },
+      "visualizations": [
+        {
+          "visualizer": "Twisted plate",
+          "foreground": "#4169e1",
+          "background": "#000000",
+          "blendMode": "ADD",
+          "start": "0%",
+          "end": "100%",
+          "options": {
+          }
+        }
+      ]
+    },
+    {
+      "sound": {
         "filePath": "Innumerable struggles against injustices(beat loop edit).mp3",
         "beatPerMinute": 142,
         "beatPerBar": 4

@@ -83,6 +83,12 @@
               "type": "string",
               "enum": ["NORMAL", "ADD", "SUBTRACT", "DARKEST", "LIGHTEST", "DIFFERENCE", "EXCLUSION", "MULTIPLY", "SCREEN", "REPLACE"]
             },
+            "weight": {
+              "description": "Stroke weight(Relative value based on HD(1280x720)).",
+              "type": ["number", "null"],
+              "minimum": 0,
+              "exclusiveMinimum": false
+            },
             "options": {
               "description": "Visualizer-specific parameters(reserved).",
               "type": "object"

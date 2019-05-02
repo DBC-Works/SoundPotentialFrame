@@ -62,7 +62,7 @@ final class NoiseSteeringLineVisualizer extends Visualizer {
     
     translate(width / 2, height / 2);
     stroke(hue(fgColor), saturation(fgColor), brightness(fgColor), 10);
-    strokeWeight(getScaledValue(1));
+    setStrokeWeight(1);
     noFill();
     for (Particle particle : particles) {
       final List<PVector> positions = particle.getPositionHistory();
@@ -154,7 +154,7 @@ final class NoiseSteeringCurveLineVisualizer extends Visualizer {
     
     translate(width / 2, height / 2);
     stroke(hue(fgColor), saturation(fgColor), brightness(fgColor), 5);
-    strokeWeight(getScaledValue(1));
+    setStrokeWeight(1);
     noFill();
 
     for (Particle particle : rightParticles) {
@@ -225,7 +225,7 @@ final class LevelTraceVisualizer extends Visualizer {
     }
     ns += 0.01;
     stroke(h, saturation(fgColor), brightness(fgColor), 5);
-    strokeWeight(getScaledValue(1));
+    setStrokeWeight(1);
     noFill();
 
     final float amp = height / 12;
@@ -333,7 +333,7 @@ final class BlurringArcVisualizer extends Visualizer {
   protected void doVisualize() {
     colorMode(HSB, 360, 100, 100, 100);
     stroke(hue, saturation(fgColor), brightness(fgColor), 5);
-    strokeWeight(getScaledValue(2));
+    setStrokeWeight(2);
     strokeCap(ROUND);
     ellipseMode(CENTER);
     noFill();

@@ -32,7 +32,7 @@ final class EllipseRotationVisualizer extends Visualizer {
     return value;
   }
   private void drawEllipse(PVector center, float rotation, float intensity, float colorHue) {
-    strokeWeight(getScaledValue(2));
+    setStrokeWeight(2);
     pushMatrix();
     translate(center.x, center.y);
     

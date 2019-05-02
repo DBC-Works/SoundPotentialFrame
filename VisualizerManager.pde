@@ -14,6 +14,7 @@ final class VisualizationInfo {
   final String fgColor;
   final String background;
   final int blendMode;
+  final String weight;
   final String start;
   final String end;
   final String len;
@@ -24,6 +25,7 @@ final class VisualizationInfo {
     String fg,
     String bg,
     String blendModeName,
+    String sw,
     String st,
     String e,
     String l,
@@ -67,6 +69,7 @@ final class VisualizationInfo {
         blendMode = NORMAL;
         break;
     }
+    weight = sw;
     start = st;
     end = e;
     len = l;
@@ -99,6 +102,7 @@ final class SceneInfo {
         fgColor,
         bg,
         blend,
+        info.getString("weight", null),
         info.getString("start", null),
         info.getString("end", null),
         info.getString("length", null),
@@ -123,6 +127,7 @@ abstract class Visualizer {
   protected final VisualizationInfo visualizationInfo;
   protected final color fgColor;
   protected final color bgColor;
+  protected final float weight;
 
   private final PImage backgroundImage;
   private final List< PShader > filterShaders = new ArrayList< PShader >();
@@ -130,6 +135,8 @@ abstract class Visualizer {
 
   protected Visualizer(VisualizationInfo info, long lastTimeMillis, color defaultForegroundColor, color defaultBackgroundColor) {
     visualizationInfo = info;
+
+    weight = info.weight != null && 0 < info.weight.length() ? Float.parseFloat(info.weight) : -1;
 
     MusicDataProvider provider = getMusicDataProvider();
     long start;
@@ -177,6 +184,9 @@ abstract class Visualizer {
       }
     }
   }
+  final protected float getStrokeWeight(float defaultWeight) {
+    return getScaledValue(0 <= weight ? weight : defaultWeight);
+  }
   final protected VisualizingState getState() {
     return state;
   }
@@ -194,6 +204,10 @@ abstract class Visualizer {
   }
   final Visualizer prepare(boolean isPrimary) {
     doPrepare(getMusicDataProvider(), isPrimary);
+    return this;
+  }
+  final Visualizer setStrokeWeight(float defaultWeight) {
+    strokeWeight(getStrokeWeight(defaultWeight));
     return this;
   }
   final Visualizer visualize() {
@@ -412,6 +426,12 @@ final class VisualizerManager {
         put("Bluring boxes", new VisualizerFactory() {
           Visualizer create(VisualizationInfo info, long lastTimeMillis) {
             return new BluringBoxesVisualizer(info, lastTimeMillis);
+          }
+        });
+
+        put("Twisted plate", new VisualizerFactory() {
+          Visualizer create(VisualizationInfo info, long lastTimeMillis) {
+            return new TwistedPlateVisualizer(info, lastTimeMillis);
           }
         });
       }
